@@ -1,0 +1,5 @@
+flask>=2.0.0
+vllm>=0.2.0
+torch>=2.0.0
+transformers>=4.30.0
+werkzeug>=2.0.0
