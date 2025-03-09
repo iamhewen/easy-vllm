@@ -139,6 +139,36 @@
                                 </div>
                             </div>
                             
+                            <div class="row g-2 mb-3">
+                                <div class="col-md-6">
+                                    <div class="form-floating">
+                                        <input type="number" class="form-control" id="topP" value="0.9" min="0" max="1" step="0.01">
+                                        <label for="topP">Top P</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-floating">
+                                        <input type="number" class="form-control" id="topK" value="50" min="0" max="100" step="1">
+                                        <label for="topK">Top K</label>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row g-2 mb-3">
+                                <div class="col-md-6">
+                                    <div class="form-floating">
+                                        <input type="number" class="form-control" id="repetitionPenalty" value="1.0" min="1.0" max="2.0" step="0.05">
+                                        <label for="repetitionPenalty">重复惩罚</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-floating">
+                                        <input type="number" class="form-control" id="presencePenalty" value="0.0" min="0.0" max="2.0" step="0.1">
+                                        <label for="presencePenalty">存在惩罚</label>
+                                    </div>
+                                </div>
+                            </div>
+                            
                             <button type="submit" class="btn btn-success w-100" id="generateBtn" disabled>生成文本</button>
                         </form>
                         
@@ -159,25 +189,42 @@
         <div class="row mt-4">
             <div class="col-12">
                 <div class="card">
-                    <div class="card-header">API 使用说明</div>
+                    <div class="card-header">日志信息</div>
                     <div class="card-body">
-                        <h5>文本生成 API</h5>
-                        <p><code>POST /api/v1/generate</code></p>
-                        <p>请求示例:</p>
-                        <div class="api-example">
+                        <div id="logContainer" class="border p-2 rounded" style="height: 200px; overflow-y: auto; font-family: monospace; font-size: 0.875rem; background-color: #f5f5f5;">
+                            <div id="logContent">系统日志将显示在这里...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- API 文档部分 -->
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">API 使用说明</div>
+                <div class="card-body">
+                    <h5>文本生成 API</h5>
+                    <p><code>POST http://localhost:5001/api/v1/generate</code></p>
+                    <p>请求示例:</p>
+                    <div class="api-example">
 {
   "prompt": "你好，请介绍一下自己",
   "max_tokens": 100,
-  "temperature": 0.7
+  "temperature": 0.7,
+  "top_p": 0.9,
+  "top_k": 50,
+  "repetition_penalty": 1.0,
+  "presence_penalty": 0.0
 }
                         </div>
                         <p class="mt-2">响应示例:</p>
                         <div class="api-example">
 {
-  "generated_text": "我是一个AI助手，由vLLM驱动..."
+  "generated_text": "我是一个AI助手，由vLLM驱动...",
+  "generation_time": "0.25秒"
 }
                         </div>
-                    </div>
                 </div>
             </div>
         </div>
@@ -236,8 +283,57 @@
                     });
             }
             
-            // 初始获取模型状态
+            // 获取系统日志
+            function updateLogs() {
+                fetch('/get_logs')
+                    .then(response => response.json())
+                    .then(logs => {
+                        const logContent = document.getElementById('logContent');
+                        if (logs.length > 0) {
+                            // 清空现有日志
+                            logContent.innerHTML = '';
+                            
+                            // 添加新日志
+                            logs.forEach(log => {
+                                const logEntry = document.createElement('div');
+                                let levelClass = '';
+                                
+                                // 根据日志级别设置样式
+                                switch(log.level) {
+                                    case 'error':
+                                        levelClass = 'text-danger';
+                                        break;
+                                    case 'warning':
+                                        levelClass = 'text-warning';
+                                        break;
+                                    case 'success':
+                                        levelClass = 'text-success';
+                                        break;
+                                    default:
+                                        levelClass = 'text-info';
+                                }
+                                
+                                logEntry.className = levelClass;
+                                logEntry.textContent = `[${log.timestamp}] ${log.message}`;
+                                logContent.appendChild(logEntry);
+                            });
+                            
+                            // 滚动到最新日志
+                            const logContainer = document.getElementById('logContainer');
+                            logContainer.scrollTop = logContainer.scrollHeight;
+                        }
+                    })
+                    .catch(error => {
+                        console.error('获取日志失败:', error);
+                    });
+            }
+            
+            // 初始获取模型状态和日志
             updateModelStatus();
+            updateLogs();
+            
+            // 设置定时器，每3秒更新一次日志
+            setInterval(updateLogs, 3000);
             
             // 使用路径加载模型
             document.getElementById('pathForm').addEventListener('submit', function(e) {
@@ -328,7 +424,11 @@
                     body: JSON.stringify({
                         prompt: prompt,
                         max_tokens: maxTokens,
-                        temperature: temperature
+                        temperature: temperature,
+                        top_p: parseFloat(document.getElementById('topP').value),
+                        top_k: parseInt(document.getElementById('topK').value),
+                        repetition_penalty: parseFloat(document.getElementById('repetitionPenalty').value),
+                        presence_penalty: parseFloat(document.getElementById('presencePenalty').value)
                     })
                 })
                 .then(response => response.json())
